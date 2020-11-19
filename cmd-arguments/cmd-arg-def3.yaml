@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+    name: ubuntu-Pod
+    labels:
+        app: myapp
+spec:
+    containers:
+    -   name: webapp-color
+        image: kodekloud/webapp-color-v1 #for example only
+        command: ["app.py"]
+        args: ["--color", "green"] #multiple arguments

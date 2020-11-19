@@ -1,0 +1,538 @@
+#Depricated
+kubectl run nginx --image=nginx
+
+kubectl get pods -o wide
+
+kubectl run redis --image=redis --dry-run=client -o yaml > pod.yaml
+
+kubectl apply -f pod.yaml
+
+kubectl edit pod redis
+
+#replication controller
+
+kubectl create -f rc-controller.yml
+
+kubectl get replicationcontroller
+
+#replica set
+
+kubectl create -f replicaset-definition.yml
+
+kubectl get replicaset
+
+kubectl delete replicaset myapp-replicaset
+#above cmd also deletes all underlying pods
+
+
+#scale
+
+kubectl replace -f rc-definition.yml
+
+kubectl scale --replacas=6 -f rc-definition.yml
+
+kubectl scale --replicas=6 replicaset myapp-replicaset
+
+
+#Time saving tips
+
+Create an NGINX Pod
+
+kubectl run nginx --image=nginx
+
+Generate POD Manifest YAML file (-o yaml). Don't create it(--dry-run)
+
+kubectl run nginx --image=nginx --dry-run=client -o yaml
+
+Create a deployment
+
+kubectl create deployment --image=nginx nginx
+
+kubectl expose deployment nginx --port 80
+
+kubectl edit deployment nginx
+
+kubectl scale deployment nginx --replicas=6
+
+kubectl set image deployment nginx nginx=nginx:1.18
+
+kubectl create -f def.yml
+kubectl replace -f def.yml
+kubectl delete -f def.yml
+kubectl replace --force -f nginx.yml
+
+Generate Deployment YAML file (-o yaml). Don't create it(--dry-run)
+
+kubectl create deployment --image=nginx nginx --dry-run=client -o yaml
+
+Generate Deployment YAML file (-o yaml). Don't create it(--dry-run) with 4 Replicas (--replicas=4)
+
+kubectl create deployment --image=nginx nginx --dry-run=client -o yaml > nginx-deployment.yaml
+
+Save it to a file, make necessary changes to the file (for example, adding more replicas) and then create the deployment.
+
+kubectl create deployment does not have a --replicas option. You could first create it and then scale it using the kubectl scale command.
+
+Create a Service named redis-service of type ClusterIP to expose pod redis on port 6379
+
+kubectl expose pod redis --port=6379 --name redis-service --dry-run=client -o yaml
+
+(This will automatically use the pod's labels as selectors)
+Or
+kubectl create service clusterip redis --tcp=6379:6379 --dry-run=client -o yaml  
+(This will not use the pods labels as selectors, instead it will assume selectors as app=redis. 
+You cannot pass in selectors as an option. So it does not work very well if your pod has a different label set. 
+So generate the file and modify the selectors before creating the service)
+
+
+#namespace
+
+kubectl create -f create-namespace-def.yml
+
+kubectl create namespace dev
+
+kubectl get pods --namespace=dev
+
+#switch to a namespace permanently
+kubectl config set-context $(kubectl config current-context) --namespace=dev
+
+kubectl get pods --all-namespaces
+
+
+#service
+
+service type -->
+
+NodePort, ClusterIP, LoadBalancer
+clusterIP is default type of service spec type
+
+NodePort Range: 30000 - 32767
+
+kubectl create -f service-def.yml
+
+kubectl get services
+
+kubectl describe service servicename
+
+service loadbalancing across multiple pods: random
+session affinity : yes
+
+#selectors and labels
+kubectl get pods --selector env=dev
+
+kubectl get all --selector env=prod
+kubectl get all --selector env=prod,bu=finance,tier=frontend
+
+#taint & toleration
+
+taint is placed on Node, toleration is placed on pods
+
+kubectl taint nodes node-name key=value:taint-effect
+taint-effect : NoSchedule | PreferNoSchedule |  NoExecute
+
+kubectl taint nodes node1 app=blue:NoSchedule
+
+#untaint
+kubectl taint nodes controlplane node-role.kubernetes.io/master:NoSchedule-
+
+# by default master node has a taint. so scheduler does not place pod on the master node.
+kubectl describe node kubemaster | grep Taint
+
+#label nodes
+kubectl label nodes mode1 size=large
+
+use nodeSelector on pod definition
+
+#node affinity 
+Type of Affinity
+
+requiredDuringSchedulingIgnoredDuringExecution
+
+preferredDuringSchedulingIgnoredDuringExecution
+
+Edit a POD
+
+Remember, you CANNOT edit specifications of an existing POD other than the below.
+
+    spec.containers[*].image
+
+    spec.initContainers[*].image
+
+    spec.activeDeadlineSeconds
+
+    spec.tolerations
+
+For example you cannot edit the environment variables, service accounts, resource limits
+ (all of which we will discuss later) of a running pod. But if you really want to, you have 2 options:
+
+1.
+kubectl get pod webapp -o yaml > my-new-pod.yaml
+
+2. kubectl edit pod pod-name
+
+Edit Deployments
+
+With Deployments you can easily edit any field/property of the POD template. Since the pod template is a child of the deployment specification,  with every change the deployment will automatically delete and create a new pod with the new changes. So if you are asked to edit a property of a POD part of a deployment you may do that simply by running the command
+
+kubectl edit deployment my-deployment 
+
+#daemonset
+
+kubectl get daemonset --all-namespaces
+
+kubectl describe daemonset kube-proxy -n kube-system
+
+#Static pod
+location of static pod def files
+/etc/kubernetes/manifests
+
+can be created Pods only, no deployment, replicaset
+
+--pod-manifest-path=/etc/Kubernetes/manifests
+
+kubelet.service file-->
+--kubeconfig=/var/lib/kubelet/kubeconfig \\
+
+kubeconfig.yaml -->
+staticPodPath: /etc/kubernetes/manifests
+
+#view static pods
+docker ps
+
+How many static pods exist in this cluster in all namespaces?
+kubectl get pods --all-namespaces 
+and look for those with -controlplane appended in the name
+
+Run the command ps -aux | grep kubelet and identify the config file -
+ --config=/var/lib/kubelet/config.yaml. Then checkin the config file for staticPodPath.
+
+ kubectl run --restart=Never --image=busybox static-busybox --dry-run=client -o yaml --command -- sleep 1000 > /etc/kubernetes/manifests/static-busybox.yaml
+
+
+ Simply edit the static pod definition file and save it. If that does not re-create the pod, run: 
+ 'kubectl run --restart=Never --image=busybox:1.28.4 static-busybox --dry-run=client -o yaml --command -- sleep 1000 > /etc/kubernetes/manifests/static-busybox.yaml'
+
+ #scheduler
+kube-scheduler.service
+--scheduler-name=default-scheduler
+
+my-custom-scheduler.service
+--scheduler-name=my-custom-scheduler
+
+
+if using kube adm
+
+/etc/kubernetes/manifests/kube-scheduler.yaml
+
+to create custom scheduler, we can copy this schduler and provide a name in the command specification
+- --scheduler-name=my-custom-scheduler
+- --lock-object-name=my-custom-schduler-name
+
+on the pod definition,
+provide schdulerName in the spec
+
+schedulerName: my-custom-scheduler
+
+ kubectl get events
+
+ kubectl logs my-custom-scheduler --name-space=kube-system
+
+#monitoring and logging
+#metrics server
+
+minikube addons enable metrics-server
+
+git clone https://github.com/kubernetes-incubator/metrics-serve
+
+kubectl create -f /deploy/1.8/
+
+
+kubectl top node
+
+kubectl top pod
+
+#if pod contains one container
+kubectl logs -f my-pod-name
+
+#multiple container within a pod
+kubectl logs -f my-pod-name container-name
+
+#application lifecycle mgmt
+#rolling update
+
+kubectl apply -f deployment-def.yaml
+kubectl set image deployment/myapp-deployment nginx=nginx:1.9.1
+
+Strategies: Recreate & RollingUpdate
+
+kubectl describe deployment myapp-deployment
+strategyType: Recreate
+scaled down to zero and then scale upto n
+
+strategyType: RollingUpdate
+scaled down one at a time and scaling up new container
+
+deployement happens using replicasets
+
+kubectl get replicasets
+
+kubectl rollout status deployment/myapp-deployment
+kubectl rollout undo deployment/myapp-deployment
+kubectl rollout history deployment/myapp-deployment
+
+kubectl run cmd creates a deployment
+
+# docker cmds
+
+within dockerfile
+CMD["sleep", "5"]
+
+docker run ubuntu-sleeper  <-- would execute cmd sleep 5
+
+docker run ubuntu-sleeper sleep 10  <-- over rides the entire cmd with the provided cmd, sleep 10
+----------
+ENTRYPOINT["sleep"]
+
+docker run ubuntu-sleeper 10     <-- have to provide 10 as arg.
+--------
+ENTRYPOINT["sleep"]
+CMD["5"]
+
+docker run ubuntu-sleeper    <-- takes 5 as default arg
+docker run ubuntu-sleeper 10    <-- overrides the default arg 5 and uses 10
+------
+#to override the entrypoint cmd with sleep2.0 instead of sleep
+docker run --entrypoint sleep2.0 ubuntu-sleeper 10
+
+#environment variables
+docker run -e APP_COLOR=pink simple-webapp-color
+
+#config map
+kubectl create configmap \
+    app-config --from-literal=APP_COLOR=blue
+               --from-literal=APP_MOD=prod
+
+kubectl create cm app-config --from-literal=APP_COLOR=blue
+
+kubectl create configmap \
+        app-config --from-file=app_config.properties
+
+kubectl create -f config-map.yaml
+
+kubectl get configmaps
+kubectl describe configmaps
+
+kubectl explain pods --recursive |  grep envFrom -A3
+
+#secret
+
+kubectl create secret generic app-secret --from-literal=DB_HOST=mysql \
+                                        --from-literal=DB_USER=root \
+                                        --from-literal=DB_PASSWORD=passwd
+                                
+kubectl create secret generic \
+            app-secret --from-file=app_secret.properties    
+
+#hash a plain text into encoded string using base64
+echo -n 'mysql' | base64
+
+#decode
+echo -n 'mysql' | base64 --decode
+
+kubectl get secrets
+kubectl describe secrets
+kubectl get secret app-secret -o yaml
+
+#volume - secret
+secretName: app-secret #all secrets would be created as files
+
+That is a task that will be run only  one time when the pod is first created. 
+Or a process that waits  for an external service or database to be up before the actual application starts. 
+That's where initContainers comes in.
+
+An initContainer is configured in a pod like all other containers, 
+except that it is specified inside a initContainers section
+
+You can configure multiple such initContainers as well, 
+like how we did for multi-pod containers. 
+In that case each init container is run one at a time in sequential order.
+
+If any of the initContainers fail to complete, 
+Kubernetes restarts the Pod repeatedly until the Init Container succeeds.
+
+kubectl -n elastic-stack exec -it app cat /log/app.log
+
+kubectl get pods,svc
+
+#cluster maintenace
+pod-eviction-timeout=5m0s  #5 minutes
+kube-controller-manager pod-eviction-timeout=5m0s ...
+
+kubectl drain node1
+
+#make node avaialable again after maintenance
+kubectl uncordon node1
+
+#make node unschedulable
+kubectl cordon node2
+
+#kubernetes software version
+v1.13.4
+
+major.minor.patch
+
+#all these would be v1.13.4
+kube-api-server
+controller-manager
+kube-scheduler
+kubelet
+kube-proxy
+kubectl
+
+#could be diff version
+ETCD cluster, CoreDNS
+
+            kube-api-server (x) 
+controller-manager          kube-scheduler
+    (x-1)                          (x-1)
+
+    kubelet             kube-proxy
+    (x-2)                   (x-2)
+
+    
+kubectl (x+1 > x-1)
+
+
+#Upgrade components:
+
+kubeadm uprade plan
+
+kubeadm upgrade apply
+
+##Upgrade process
+#kubeadm upgrade
+
+#upgrade master node
+kubectl drain master/controlplane --ignore-daemonsets
+
+apt-get upgrade -y kubeadm=1.12.0-00
+kubeadm upgrade apply
+apt-get upgrade -y kubelet=1.12.0-00
+systemctl restart kubelet
+kubectl get nodes
+
+#upgrade worker nodes
+
+kubectl drain node1
+(kubectl drain node01 --ignore-daemonsets)
+#if there are pods on the node which are not part of deployments/replicasets, the node needs to be force drained
+#the pod would be lost forever in that process
+kubectl drain node02 --ignore-daemonsets --force
+
+apt-get upgrade -y kubeadm=1.12.0-00
+apt-get upgrade -y kubelet=1.12.0-00
+kubeadm upgrade node config --kubelet-version v1.12.0
+systemctl restart kubelet
+
+kubectl uncordon node1
+
+#master
+apt update
+apt install kubeadm=1.18.0-00
+kubeadm version
+kubeadm upgrade apply v1.18.0
+apt install kubelet=1.18.0-00
+
+#ssh node01
+apt update
+apt install kubeadm=1.18.0-00
+kubeadm upgrade node
+apt install kubelet=1.18.0-00
+
+#back up
+
+kubectl get all --all-namespaces -o yaml > all-deploy-services.yaml
+
+etcd.service
+--data-dir=var/lib/etcd
+
+#snapshot etcd
+
+ETCDCTL_API=3 etcdctl snapshot save snapshot.db
+ETCDCTL_API=3 etcdctl snapshot status snapshot.db
+
+etcdctl snapshot save -h and keep a note of the mandatory global options.
+
+Since our ETCD database is TLS-Enabled, the following options are mandatory:
+
+--cacert                                                verify certificates of TLS-enabled secure servers using this CA bundle
+
+--cert                                                    identify secure client using this TLS certificate file
+
+--endpoints=[127.0.0.1:2379]          This is the default as ETCD is running on master node and exposed on localhost 2379.
+
+--key                                                      identify secure client using this TLS key file
+
+use the help option for snapshot restore to see all available options for restoring the backup.
+
+etcdctl snapshot restore -h
+
+/etc/kubernetes/pki/etcd/server.key
+
+--peer-trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+--peer-key-file=/etc/kubernetes/pki/etcd/peer.key
+--peer-cert-file=/etc/kubernetes/pki/etcd/peer.crt
+--key-file=/etc/kubernetes/pki/etcd/server.key
+--cert-file=/etc/kubernetes/pki/etcd/server.crt
+
+export ETCDCTL_API=3
+
+#restore etcd snapshot
+
+service kube-apiserver stop
+
+#backup cluster
+kubectl logs etcd-controlplane -n kube-system
+
+#backup the etcd cluster data
+
+ETCDCTL_API=3 etcdctl --endpoints=https://[127.0.0.1]:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+--cert=/etc/kubernetes/pki/etcd/server.crt \
+--key=/etc/kubernetes/pki/etcd/server.key \
+snapshot save /opt/snapshot-pre-boot.db
+
+#restore etcd  from snashot
+
+ETCDCTL_API=3 etcdctl --endpoints=https://[127.0.0.1]:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+--cert=/etc/kubernetes/pki/etcd/server.crt \
+--key=/etc/kubernetes/pki/etcd/server.key \
+--data-dir /var/lib/etcd-from-backup \
+snapshot restore /opt/snapshot-pre-boot.db
+ 
+
+Update ETCD POD to use the new hostPath directory 
+/var/lib/etcd-from-backup by modifying the pod definition file at 
+/etc/kubernetes/manifests/etcd.yaml. When this file is updated, 
+the ETCD pod is automatically re-created as this is a static pod placed under 
+the /etc/kubernetes/manifests directory.
+
+
+  volumes:
+  - hostPath:
+      path: /var/lib/etcd-from-backup
+      type: DirectoryOrCreate
+    name: etcd-data
+  - hostPath:
+      path: /etc/kubernetes/pki/etcd
+      type: DirectoryOrCreate
+    name: etcd-certs
+
+Note: as the ETCD pod has changed it will automatically restart, and also kube-controller-manager and 
+kube-scheduler. Wait 1-2 to mins for this pods to restart. 
+You can make a watch "docker ps | grep etcd" to see when the ETCD pod is restarted.
+
+Note2: If the etcd pod is not getting Ready 1/1, then restart it by 
+kubectl delete pod -n kube-system etcd-controlplane 
+and wait 1 minute.
+
+https://github.com/mmumshad/kubernetes-the-hard-way/blob/master/practice-questions-answers/cluster-maintenance/backup-etcd/etcd-backup-and-restore.md

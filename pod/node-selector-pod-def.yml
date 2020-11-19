@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+    name: myapp-pod
+    labels:
+        size: Large
+        tier: backend
+spec:
+    nodeSelector:
+        size: Large
+    containers:
+    -   name: nginx-container
+        image: nginx
+    
