@@ -1,0 +1,16 @@
+#kubectl create secret docker-registry regcred \
+#     --docker-server=  \
+#     --docker-username=
+#     --docker-password=
+#     --docker-email=
+
+apiVersion: v1
+kind: Pod
+metadata:
+    name: myapp-pod
+spec:
+    containers:
+    -   name: nginx-container
+        image: private-registry.io/apps/internal-app
+    imagePullSecrets:
+    -   name: regcred

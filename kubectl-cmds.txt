@@ -496,19 +496,51 @@ kubectl logs etcd-controlplane -n kube-system
 
 #backup the etcd cluster data
 
-ETCDCTL_API=3 etcdctl --endpoints=https://[127.0.0.1]:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+ETCDCTL_API=3 etcdctl snapshot save \
+--endpoints=https://[127.0.0.1]:2379 \
+--cacert=/etc/kubernetes/pki/etcd/ca.crt \
 --cert=/etc/kubernetes/pki/etcd/server.crt \
 --key=/etc/kubernetes/pki/etcd/server.key \
-snapshot save /opt/snapshot-pre-boot.db
+/opt/snapshot-pre-boot.db
 
-#restore etcd  from snashot
+#restore etcd  from snapshot
 
-ETCDCTL_API=3 etcdctl --endpoints=https://[127.0.0.1]:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+ETCDCTL_API=3 etcdctl snapshot restore \
+--endpoints=https://[127.0.0.1]:2379 \
+--cacert=/etc/kubernetes/pki/etcd/ca.crt \
 --cert=/etc/kubernetes/pki/etcd/server.crt \
 --key=/etc/kubernetes/pki/etcd/server.key \
---data-dir /var/lib/etcd-from-backup \
-snapshot restore /opt/snapshot-pre-boot.db
+--data-dir="/var/lib/etcd-from-backup" \
+--initial-cluster="master=https://127.0.0.1:2380"
+--name="master" \
+--initial-advertise-peer-urls="https://127.0.0.1:2380" \
+--initial-cluster-token="etcd-cluster-1"
+ /opt/snapshot-pre-boot.db
  
+//during hands-on lab 
+ETCDCTL_API=3 etcdctl snapshot restore \
+--cacert=/etc/kubernetes/pki/etcd/ca.crt \
+--cert=/etc/kubernetes/pki/etcd/server.crt \
+--key=/etc/kubernetes/pki/etcd/server.key \
+--endpoints=127.0.0.1:2379 \
+--data-dir="/var/lib/etcd-from-backup" \
+--initial-advertise-peer-urls="https://127.0.0.1:2380" \
+--initial-cluster-token="etcd-cluster-1" \
+--name="controlplane" \
+--initial-cluster="controlplane=https://127.0.0.1:2380" \
+/opt/snapshot-pre-boot.db
+
+
+
+
+ETCDCTL_API=3 etcdctl member list \
+--cacert=/etc/kubernetes/pki/etcd/ca.crt \
+--cert=/etc/kubernetes/pki/etcd/server.crt \
+--key=/etc/kubernetes/pki/etcd/server.key \
+--endpoints=127.0.0.1:2379
+
+ETCDCTL_API=3 etcdctl snapshot save -h
+ETCDCTL_API=3 etcdctl sanshot restore -h
 
 Update ETCD POD to use the new hostPath directory 
 /var/lib/etcd-from-backup by modifying the pod definition file at 
@@ -536,3 +568,225 @@ kubectl delete pod -n kube-system etcd-controlplane
 and wait 1 minute.
 
 https://github.com/mmumshad/kubernetes-the-hard-way/blob/master/practice-questions-answers/cluster-maintenance/backup-etcd/etcd-backup-and-restore.md
+
+#Security certificate details
+
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout
+
+#inspect service logs
+journalctl -u etcd.service -l
+
+kubectl logs etcd-master
+
+docker logs container-name
+
+#certificates api
+
+#create a private key
+openssl genrsa -out jane.key 2048
+
+#create a csr
+openssl req-new-key jane.key -subj "/CN=jane" -out jane.csr
+
+create jane.csr.yaml using jane.csr in base64 format
+
+cat jane.csr | base64
+
+kubectl get csr
+
+kubectl certificte approve jane
+kubectl certificate deny jane
+kubectl delete csr jane
+
+#inspect the csr
+kubectl get csr jane -o yaml
+
+#to get the certiicate use the status certificate section of the yaml output
+# the output is base64 encoded
+kubectl get csr jane -o yaml
+
+#decode base64 format
+echo "KASK23KK2..." | base64 --decode
+
+#within controller manager there is CSR-APPROVING CSR-SIGNING components
+
+# To find the ca certificate look the kube controller manager definition
+# look for --cluster-signing-cert-file and --cluster-signing-key-file
+cat /etc/kubernetes/manifests/kube-controller-manager.yaml
+
+#kubeconfig
+
+curl https://my-kube-playground:6443/api/v1/pods \
+    --key admin.key
+    --cert admin.crt
+    --cacert ca.crt
+
+kubectl get pods \
+    --server my-kube-playground:6443
+    --client-key admin.key
+    --client-certificate admin.crt
+    --certificate-authority ca.crt
+
+kubectl get pods --kubeconfig config
+
+#Default location of kubeconfig file
+$HOME/.kube/config
+
+#clusters, context, users
+
+kubectl config view
+kubectl config view --kubeconfig=my-custom-config
+
+kubectl config use-context prod-user@production
+kubectl config -h
+
+#namespace can be mentioned within a context
+
+kubectl config --kubeconfig=/root/my-kube-config use-context reseacrh
+
+#api
+
+curl https://kube-master:6443/version
+
+curl https://kube-master:6443/api/v1/pods
+
+/metrics /healthz /apis /logs 
+
+            /api                /apis
+
+    coregroup                   namedgroup
+
+#see api list
+curl https://kube-master:6443/ -k
+curl https://kube-master:6443/ -k | grep "name"
+
+curl https://kube-master:6443/ -k \
+    --key admin.key
+    --cert admin.crt
+    --cacert ca.crt
+#The below cmd will read from default kubeconfig file assign cert, key and ca files
+# so we dont nee to supply them when we run cmds afterwards
+kubectl proxy
+
+
+#kubectl proxy and kube proxy are different
+#
+
+#Authorozation modes
+
+AllwaysAllow NODE ABAC RBAC WEBHOOK AlwaysDeny
+
+we can supply the authorization mode at kube-apiserver startup cmd using comma seperated list for multiple modes
+
+#Role based acces control #rbac
+
+Roles and RoleBindings are namespace specific. By default, they are created in 'default' namespace
+We can provide namespace in metadata section of RoleBinding
+
+#View roles
+kubectl get roles
+
+kubectl get roles --all-namespaces
+kubectl describe role developer
+
+kubectl get rolebindings
+kubectl describe rolebinding devuser-devrole-binding
+
+#check access
+
+kubectl auth can-i create deployments
+kubectl auth can-i delete nodes
+
+kubectl auth can-i create deployments --as dev-user
+kubectl auth can-i delete nodes --as dev-user
+kubectl get pods --as dev-user
+
+kubectl create rolebinding dev-user-deployment --role=deployment-role --user=dev-user --namespace=blue \
+--dry-run=client -o yaml > dev-user-deployment-binding.yaml
+
+kubectl create role deployment-role --verb=create --resource=deployment --namespace=blue \
+--dry-run=client -o yaml > deployment-role.yaml
+
+kubectl auth can-i create pods --as dev-user --namespace test
+
+kubectl api-resources --namespaced=true
+
+kubectl api-resources --namespaced=false
+
+#cluster role
+clusterrole & clusterrolebinding
+
+kubectl get clusterrole --no-headers | wc -l
+kubectl get clusterrolebindings --no-headers | wc -l
+
+kubectl create clusterrole storage-admin --resource=persistentvolumes,storageclasses --verb=list \
+--dry-run=client -o yaml > storage-admin.yaml
+
+kubectl create clusterrolebinding michelle-storage-admin --clusterrole=storage-admin --user=michelle
+
+#image
+
+image: registry/user account/image repo
+image: docker.io/nginx/nginx
+
+docker login private-registry.io
+
+docer run private-registry.io/apps/internal-app
+
+kubectl create secret docker-registry regcred \
+    --docker-server=  \
+    --docker-username=
+    --docker-password=
+    --docker-email=
+
+
+kubectl exec ubuntu-sleeper -- whoami
+
+#solutions that support network policies:
+Kube-router, Calico, Romana, Weave-net
+
+#Solutions that do not support network policy
+flannel
+
+kubectl get networkpolicy
+
+kubectl describe networkpolicy 
+
+#volume & storage
+
+storage Driver
+Volume Driver
+
+docker volume create data_volume
+
+/var/lib/docker
+    volumes
+        data_volume
+
+#volume mounting
+docker run -v data_volume:/var/lib/mysql mysql
+
+#bind mounting
+docker run -v /data/mysql:/var/lib/mysql mysql
+
+docker run \
+    --mount type=bind,source=/data/sql,target=/var/lib/mysql mysql
+
+#storage drivers
+AUFS, ZFS, BTRFS, Overlay, Overlay2, Device Mapper
+
+#volume plugin
+Local, Azure File Storage, VMWare vSphere Storage, GlusterFS, RexRay
+
+storage driver selection depends on OS. Docker chosses storage driver automatically depending on OS.
+
+#AWS EBS
+docker run -it \
+    --name mysql
+    --volume-driver rexray/ebs
+    --mount src=ebs-vol, target=/var/lib/mysql
+    mysql
+
+#Container Run Time Interface
+#Support multiple container run times e.g. docker, rkt, cri-o
+

@@ -1,0 +1,23 @@
+apiVersion: certificates.k8s.io/v1beta1
+kind: CertificateSigningRequest
+metadata:
+    name: akshay
+spec:
+    groups:
+    -   system: authenticated
+    usages:
+    -   digital signature
+    -   key encipherment
+    -   server auth
+    request: master $
+    master $
+    master $ vi akshay-csr.yaml
+    master $ cat /var/answers/akshay-csr.yaml
+    apiVersion: certificates.k8s.io/v1beta1
+    kind: CertificateSigningRequest
+    metadata:
+      name: akshay
+    spec:
+      groups:
+      - system:authenticated
+      request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ1ZqQ0NBVDRDQVFBd0VURVBNQTBHQTFVRUF3d0dZV3R6YUdGNU1JSUJJakFOQmdrcWhraUc5dzBCQVFFRgpBQU9DQVE4QU1JSUJDZ0tDQVFFQTFjL2pRc3RsUWdoMkFvWUx2bUlsOVkrbVRCbU5rRDNMbE5TQmVvWUVoejk5CmpJQk90dVl6S2o0YUdwU3o0ZmFXYjNSZzVIUVFQdkM4WnI3OUppdWR4N0N6SVo5NnVRRGYzSWxUMjBkYTBVWWgKY3BZRnMwN2gyTjU1bXBqWkVtRFhzL0dDaHozZEZKc21ibGdySE1TaUtwVUZXQ0JZMTZXNm5TS3gzbUh3OWdwcApNK0kwVWhubXhzVUtzTjd0SjFuU3VlUnE3czA4SzJMbmVQdmhrS3MxZENkS0J5c01YaDdvM1E1WU9DMFI4YU5TCmp3TnlJUGJxUitDeFJzT0hrS1B6b

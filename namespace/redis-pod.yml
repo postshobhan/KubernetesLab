@@ -1,0 +1,17 @@
+controlplane $ kubectl get namespace
+NAME              STATUS   AGE
+default           Active   21m
+dev               Active   39s
+finance           Active   40s
+kube-node-lease   Active   21m
+kube-public       Active   21m
+kube-system       Active   21m
+manufacturing     Active   39s
+marketing         Active   40s
+prod              Active   39s
+research          Active   39s
+controlplane $ kubectl get pods -n research
+NAME    READY   STATUS             RESTARTS   AGE
+dna-1   0/1     CrashLoopBackOff   2          82s
+dna-2   0/1     CrashLoopBackOff   2          81s
+controlplan
