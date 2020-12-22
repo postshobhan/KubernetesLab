@@ -1,6 +1,8 @@
 #Depricated
 kubectl run nginx --image=nginx
 
+kubectl run mypod --image=nginx --restart=Never
+
 kubectl get pods -o wide
 
 kubectl run redis --image=redis --dry-run=client -o yaml > pod.yaml
@@ -26,6 +28,8 @@ kubectl delete replicaset myapp-replicaset
 
 
 #scale
+
+kubectl scale deploy app --replicas=2
 
 kubectl replace -f rc-definition.yml
 
@@ -73,16 +77,7 @@ Save it to a file, make necessary changes to the file (for example, adding more 
 
 kubectl create deployment does not have a --replicas option. You could first create it and then scale it using the kubectl scale command.
 
-Create a Service named redis-service of type ClusterIP to expose pod redis on port 6379
 
-kubectl expose pod redis --port=6379 --name redis-service --dry-run=client -o yaml
-
-(This will automatically use the pod's labels as selectors)
-Or
-kubectl create service clusterip redis --tcp=6379:6379 --dry-run=client -o yaml  
-(This will not use the pods labels as selectors, instead it will assume selectors as app=redis. 
-You cannot pass in selectors as an option. So it does not work very well if your pod has a different label set. 
-So generate the file and modify the selectors before creating the service)
 
 
 #namespace
@@ -117,6 +112,19 @@ kubectl describe service servicename
 service loadbalancing across multiple pods: random
 session affinity : yes
 
+kubectl expose pod redis --port=6379 --name=redis-service
+
+Create a Service named redis-service of type ClusterIP to expose pod redis on port 6379
+
+kubectl expose pod redis --port=6379 --name redis-service --dry-run=client -o yaml
+
+(This will automatically use the pod's labels as selectors)
+Or
+kubectl create service clusterip redis --tcp=6379:6379 --dry-run=client -o yaml  
+(This will not use the pods labels as selectors, instead it will assume selectors as app=redis. 
+You cannot pass in selectors as an option. So it does not work very well if your pod has a different label set. 
+So generate the file and modify the selectors before creating the service)
+
 #selectors and labels
 kubectl get pods --selector env=dev
 
@@ -139,7 +147,9 @@ kubectl taint nodes controlplane node-role.kubernetes.io/master:NoSchedule-
 kubectl describe node kubemaster | grep Taint
 
 #label nodes
-kubectl label nodes mode1 size=large
+kubectl label nodes node1 size=large
+
+kubectl get nodes node01 --show-labels
 
 use nodeSelector on pod definition
 
@@ -172,15 +182,27 @@ kubectl get pod webapp -o yaml > my-new-pod.yaml
 
 Edit Deployments
 
-With Deployments you can easily edit any field/property of the POD template. Since the pod template is a child of the deployment specification,  with every change the deployment will automatically delete and create a new pod with the new changes. So if you are asked to edit a property of a POD part of a deployment you may do that simply by running the command
+With Deployments you can easily edit any field/property of the POD template. Since the pod template is
+a child of the deployment specification,  
+every change the deployment will automatically delete and create a new pod with the new changes. 
+So if you are asked to edit a property of a POD part of a deployment you may do that simply by running the command
 
 kubectl edit deployment my-deployment 
+
+#Resource Limit
+RangeLimit object can be created
+Pod can have resource limit
+
+The status 'OOMKilled' indicates that the pod ran out of memory. 
 
 #daemonset
 
 kubectl get daemonset --all-namespaces
 
 kubectl describe daemonset kube-proxy -n kube-system
+
+We can create a deployment using imperative cmd and save the output to yaml file and then change the kind to DaemonSet
+Delete the extra fields from the defnition such as replicas
 
 #Static pod
 location of static pod def files
@@ -228,8 +250,14 @@ to create custom scheduler, we can copy this schduler and provide a name in the 
 - --scheduler-name=my-custom-scheduler
 - --lock-object-name=my-custom-schduler-name
 
+During implementation I have found that you need to pass the following as well
+
+- --port=10282
+- --secure-port=0
+
 on the pod definition,
-provide schdulerName in the spec
+#provide schdulerName in the spec
+#For using the custom scheduler
 
 schedulerName: my-custom-scheduler
 
@@ -243,12 +271,16 @@ schedulerName: my-custom-scheduler
 minikube addons enable metrics-server
 
 git clone https://github.com/kubernetes-incubator/metrics-serve
+https://github.com/kodekloudhub/kubernetes-metrics-server.git
+
+git clone https://github.com/kubernetes-incubator/metrics-server.git
 
 kubectl create -f /deploy/1.8/
 
-
+#show cpu usgae
 kubectl top node
 
+#show memory usage
 kubectl top pod
 
 #if pod contains one container
@@ -262,6 +294,8 @@ kubectl logs -f my-pod-name container-name
 
 kubectl apply -f deployment-def.yaml
 kubectl set image deployment/myapp-deployment nginx=nginx:1.9.1
+
+kubectl set image deployment/nginx-deploy nginx=nginx:1.17 --record
 
 Strategies: Recreate & RollingUpdate
 
@@ -307,6 +341,9 @@ docker run --entrypoint sleep2.0 ubuntu-sleeper 10
 #environment variables
 docker run -e APP_COLOR=pink simple-webapp-color
 
+#check cmd-arguments dir
+
+
 #config map
 kubectl create configmap \
     app-config --from-literal=APP_COLOR=blue
@@ -324,6 +361,7 @@ kubectl describe configmaps
 
 kubectl explain pods --recursive |  grep envFrom -A3
 
+kubectl explain pods --recursive | less
 #secret
 
 kubectl create secret generic app-secret --from-literal=DB_HOST=mysql \
@@ -438,20 +476,39 @@ kubectl uncordon node1
 
 #master
 apt update
+kubectl drain controlplane --ignore-daemonsets
 apt install kubeadm=1.18.0-00
 kubeadm version
 kubeadm upgrade apply v1.18.0
 apt install kubelet=1.18.0-00
+systemctl restart kubelet
+kubectl uncordon controlplane
 
 #ssh node01
+kubectl drain node01 --ignore-daemonsets
 apt update
 apt install kubeadm=1.18.0-00
 kubeadm upgrade node
 apt install kubelet=1.18.0-00
+systemctl restart kubelet
+kubectl uncordon node1
+
 
 #back up
 
+https://github.com/etcd-io/etcd/releases/download/v3.4.14/etcd-v3.4.14-linux-amd64.tar.gz
+
 kubectl get all --all-namespaces -o yaml > all-deploy-services.yaml
+
+
+restore--
+linux academy
+
+sudo ETCDCTL_API=3 etcdctl snapshot restore /home/cloud_user/etcd_backup.db \
+--initial-cluster etcd-restore=https://etcd1:2380 \
+--initial-advertise-peer-urls https://etcd1:2380 \
+--name etcd-restore \
+--data-dir /var/lib/etcd
 
 etcd.service
 --data-dir=var/lib/etcd
@@ -608,6 +665,8 @@ kubectl get csr jane -o yaml
 #decode base64 format
 echo "KASK23KK2..." | base64 --decode
 
+cat john.csr | base64 | tr -d "\n"
+
 #within controller manager there is CSR-APPROVING CSR-SIGNING components
 
 # To find the ca certificate look the kube controller manager definition
@@ -724,6 +783,40 @@ kubectl create clusterrole storage-admin --resource=persistentvolumes,storagecla
 
 kubectl create clusterrolebinding michelle-storage-admin --clusterrole=storage-admin --user=michelle
 
+kubectl create clusterrolebinding pod-viewer \
+  --clusterrole=pod-viewer \
+  --serviceaccount=default:pod-viewer
+
+The correct command is:
+kubectl auth can-i <verb> <resource> --as=system:serviceaccount:<namespace>:<serviceaccountname> [-n <namespace>]
+
+To check whether the tiller account has the right to create a ServiceMonitor object:
+kubectl auth can-i create servicemonitor --as=system:serviceaccount:staging:tiller -n staging
+
+Verifying if you Have Access
+If you are not sure if your (or another) user is allowed to do a certain action, you can verify that with the kubectl auth can-i command.
+
+$ kubectl auth can-i create deployments \
+  --namespace production
+yes
+You can also impersonate users to check their access:
+
+$ kubectl auth can-i create deployments \
+  --namespace production \
+  --as jane
+no
+or impersonate a Service Account to check if it is set up right:
+
+$ kubectl auth can-i use podsecuritypolicies/privileged \
+  -n kube-system \
+  --as=system:serviceaccount:kube-system:calico-node
+yes
+You can also verify access for a whole group:
+
+$ kubectl auth can-i get pods --as-group=system:masters
+yes
+
+
 #image
 
 image: registry/user account/image repo
@@ -747,6 +840,9 @@ Kube-router, Calico, Romana, Weave-net
 
 #Solutions that do not support network policy
 flannel
+
+#To Work with Diff networking solutions
+#Container Network Interface was created
 
 kubectl get networkpolicy
 
@@ -780,6 +876,8 @@ Local, Azure File Storage, VMWare vSphere Storage, GlusterFS, RexRay
 
 storage driver selection depends on OS. Docker chosses storage driver automatically depending on OS.
 
+#Container Storage Interface
+
 #AWS EBS
 docker run -it \
     --name mysql
@@ -790,3 +888,237 @@ docker run -it \
 #Container Run Time Interface
 #Support multiple container run times e.g. docker, rkt, cri-o
 
+#Persistent Volume, PVC
+
+kubectl get persistentvolumeclaim
+kubectl get pv
+kubectl get pvc
+
+kubectl delete persistentvolumeclaim myclaim
+
+#If there is mismatch of accessModes between persistent volume claim and persistent volume
+#The claim will not bind to the PV
+
+#If a PVC is being used by a Pod, if you try to delete the PVC,
+#It gets stuck in terminating state until you delete the Pod
+
+kubectl get sc
+
+
+#Network
+
+#Network Namespace
+
+ip netns add red
+ip netns add blue
+
+ip netns
+#list loopback interfaces
+ip link
+
+ip netns exec red ip link
+ip -n red link
+
+arp
+ip netns exec red arp
+
+route
+ip netns exec red route
+
+
+#run a bash shell inside a container
+
+kubectl exec -it busybox -- bash
+kubectl exec -it busybox -- sh
+
+#ip route
+ip r
+
+kube-api-server --service-cluster-ip-range ipNet (default 10.0.0.0/24)
+
+ps -aux | grep kube-api-server
+
+iptable -L -t net | grep db-service
+
+cat /var/log/kube-proxy.log
+
+#get daemonset
+kubectl -n kube-system get ds
+
+#CoreDNS
+
+cat /etc/coredns/Corefile
+
+kubectl get configmap -n kube-system
+coredns
+
+kubectl get deployments -n kube-system
+coredns
+
+cat /etc/resolv.conf
+
+#show mac addr
+ip link show ens3
+
+#from master node to check mac addr of node01
+arp node01
+
+#default gateway
+ip route show default
+
+#show port #
+#which port kubescheduler listening to
+netstat -nplt
+
+#check live connection with port
+#check which port is being used more for etcd
+netstat -anp | grep etcd
+
+That's because 2379 is the port of ETCD to which all control plane components connect to. 
+2380 is only for etcd peer-to-peer connectivity. When you have multiple master nodes. In this case we don't.
+
+#CNI
+
+#CNI supported network plugins
+ls /opt/cni/bin
+
+#which kubelet uses ntwork plugin
+
+ps -aux | grep kublet | grep network-plugin
+#CNI configuration
+
+/etc/cni/net.d
+
+#binary executable file will be run by kubelet after a container and its associated namespace are created.
+type: weave-net
+cat /etc/cni/net.d/10-weave.conflist
+
+
+kubectl run test --image=busybox --command -- sleep 4500
+kubectl exec test -- ip route
+
+#IP Range configured for the services within the cluster?
+cat /etc/kubernetes/manifests/kube-apiserver.yaml | grep cluster-ip-range
+
+#type of proxy is the kube-proxy configured to use?
+check logs of kube-proxy pod
+
+#Identify DNS solutions
+#check pods running
+kubectl get pods -n kube-system
+
+#IP of the CoreDNS server that should be configured on PODs to resolve services?
+kubectl describe svc kube-dns -n kube-system
+
+root domain/zone configured for this kubernetes cluster?
+kubectl describe configmap coredns -n kube-system
+
+#Which namespace is the Ingress Resource deployed in?
+kubectl get ingress --all-namespaces
+
+#Deploy Ingress controller steps:
+
+1. create a namespace
+kubectl create namespace ingress-space
+2. The NGINX Ingress Controller requires a ConfigMap object. Create a ConfigMap object in the ingress-space.
+kubectl create configmap nginx-configuration -n ingress-space
+3. The NGINX Ingress Controller requires a ServiceAccount. Create a ServiceAccount in the ingress-space.
+kubectl create serviceaccount ingress-serviceaccount -n ingress-space
+4. create roles and rolebindings
+5. Deploy ingress controller (nginx ingress controller)
+6. Create a service to make ingress available to external users
+
+
+#install kubeadm
+1. https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+2. kubeadm init
+    systemctl enable docker.service
+
+    kubeadm token create --print-join-command
+
+3. https://www.weave.works/docs/net/latest/kubernetes/kube-addon/
+kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+
+
+#High Availabilty
+
+controller manager works in active - standby mode in HA setup
+
+kube-controller-manager --leader-elect true [other options]
+                        --leader-elect-lease-duration 15s
+                        --leader-elect-renew-deadline 10s
+                        --leader-elect-retry-period 2s
+
+
+#Trouble shooting
+#Node status not ready
+
+kubectl describe node node01
+
+#ssh into node
+#within node01
+journalctl -u kubelet
+
+#ssh into node and start the service
+#systemstl start kubectl
+
+systemctl daemon-reload
+systemctl restart kubelet
+
+
+
+#kubelet conf file on the worker node is located at 
+/etc/systemd/system/kubelet.service.d
+
+#cluster info
+kubectl cluster-info
+
+#The first thing to check is if the service has a valid endpoint? Does it point to the kube-dbs/core-dns?
+kubectl -n kube-system get ep kube-dns
+
+
+#JSON Path
+kubectl get pods -o json
+
+kubectl get nodes -o=jsonpath='{.items[*].metadata.name}'
+
+kubectl get nodes -o=jsonpath='{.items[*].metadata.name}{"\n"}{.items[*].status.capacity.cpu}'
+
+#Range -Loops
+kubectl get nodes -o=jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.capacity.cpu}{"\n"}{end}'
+
+#custom columns
+kubectl get nodes -o=custom-columns=NODE:.metadata.name ,CPU:.status.capacity.cpu
+
+kubectl get nodes --sort-by=.metadata.name
+kubectl get pv  --sort-by=.spec.capacity.storage > /opt/outputs/storage-capacity-sorted.txt
+kubectl get pv  --sort-by=.spec.capacity.storage -o=custom-columns=NAME:.metadata.name,CAPACITY:.spec.capacity.storage
+
+kubectl config view --kubeconfig=my-kube-config
+
+kubectl config view --kubeconfig=my-kube-config -o jsonpath="{.contexts[?(@.context.user=='aws-user')].name}"
+
+kubectl config view --kubeconfig=my-kube-config -o jsonpath="{.contexts[?(@.context.user=='aws-user')].name}"
+
+
+
+
+##exam tips
+
+kubectl create clusterrole pvviewer-role --resource=persistentvolumes --verb=list
+
+kubectl create clusterrolebinding pbinding --clusterrole=prole --serviceaccount=default:pvviewer
+
+
+nc -zvw 2 nginx 80
+
+
+scp the data dir to master node
+
+for cluster upgrade question you will ssh to a node and start kubelet service
+
+wget -qO- POD_IP_ADDRESS:80
+
+kubectl get nodes -o=custom-columns='TAINT:.spec.taints,NODE:.metadata.name'
+
+sudo journalctl -u kubelet

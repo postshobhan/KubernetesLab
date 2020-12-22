@@ -1,0 +1,14 @@
+#
+#Dynamic Provisioning with storage class
+#
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myclaim
+spec:
+  accessModes:
+    - ReadWiteOnce
+  storageClassName: google-storage
+  resources:
+    requests:
+      storage: 500Mi

@@ -1,0 +1,10 @@
+kubectl get nodes -o=jsonpath='{.items[*].status.addresses[?(@.type == "InternalIP")].address]}'
+
+kubectl config view -o jsonpath='{.users[?(@.name == "e2e")].user.password}'
+
+
+kubectl get nodes -o=jsonpath='InternalIP of master {.items[0].status.addresses[?(@.type == "InternalIP")].address} InternalIP of node1 {.items[1].status.addresses[?(@.type == "InternalIP")].address} InternalIP of node2 {.items[2].status.addresses[?(@.type == "InternalIP")].address} InternalIP of node2 {.items[3].status.addresses[?(@.type == "InternalIP")].address}' --sort-by=.metadata.name
+
+
+
+ 

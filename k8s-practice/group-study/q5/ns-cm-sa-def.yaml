@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: ingress-demo
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configuration
+  namespace: ingress-demo
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ingress-serviceaccount
+  namespace: ingress-demo
+secrets:
+- name: ingress-serviceaccount-token-fh8sx

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: ubuntu-netpol
+    type: client
+  name: ubuntu-netpol
+  namespace: joebewda-netpol
+spec:
+  containers:
+  - image: ubuntu
+    name: ubuntu-netpol
+    command:
+    - "sleep"
+    - "500000"
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}

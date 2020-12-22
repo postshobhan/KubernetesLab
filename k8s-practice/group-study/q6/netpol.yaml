@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: k8s-netpol
+  namespace: joebewda-netpol
+spec:
+  podSelector:
+    matchLabels:
+      app: hi-app
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          ns: joe
+    - podSelector:
+        matchLabels:
+          type: client
+    ports:
+    - protocol: TCP
+      port: 6548

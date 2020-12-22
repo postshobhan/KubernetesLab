@@ -1,0 +1,80 @@
+1. Install Docker on 3 nodes
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository \
+"deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+$(lsb_release -cs) \
+stable"
+sudo apt-get update
+sudo apt-get install -y docker-ce=18.06.1~ce~3-0~ubuntu
+sudo apt-mark hold docker-ce
+
+#Verify docker is running
+sudo systemctl status docker
+
+#if apt update process gets stuck on any node
+sudo lsof /var/lib/dpkg/lock-frontend
+
+2. Install Kubeadm, Kubelet, Kubectl on 3 nodes
+
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+cat << EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+sudo apt-get update
+sudo apt-get install -y kubelet=1.19.0-00 kubeadm=1.19.0-00 kubectl=1.19.0-00
+sudo apt-mark hold kubelet kubeadm kubectl
+
+3. On one of the nodes (master), bootstrap the cluster
+
+#kube  master node
+
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+
+#when done. setup local kubeconfig using the printed cmd on terminal as out put of the last cmd
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+Take note that the kubeadm init command printed a long kubeadm join command to the screen. 
+You will need that kubeadm join command in the next step!
+
+#If you lost the kubeadm join cmd, use the below cmd to generate that. You might need sudo pribilege to run kubeadm join !
+
+kubeadm token create --print-join-command
+
+
+Run the following commmand on the Kube master node to verify it is up and running:
+
+kubectl version
+This command should return both a Client Version and a Server Version.
+
+4. From worker nodes
+Copy the kubeadm join command that was printed by the kubeadm init command earlier, with the token and hash. Run this command on both worker nodes, but make sure you add sudo in front of it:
+sudo kubeadm join $some_ip:6443 --token $some_token --discovery-token-ca-cert-hash $some_hash
+
+Now, on the Kube master node, make sure your nodes joined the cluster successfully:
+kubectl get nodes
+Verify that all three of your nodes are listed. It will look something like this:
+NAME            STATUS     ROLES    AGE   VERSION
+ip-10-0-1-101   NotReady   master   30s   v1.12.2
+ip-10-0-1-102   NotReady   <none>   8s    v1.12.2
+ip-10-0-1-103   NotReady   <none>   5s    v1.12.2
+
+
+5. Setup cluster networking using weave-net
+
+https://www.weave.works/docs/net/latest/kubernetes/kube-addon/
+
+#Run this on the master node
+
+kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+
+kubectl get nodes
+
+After a short time, all three nodes should be in the Ready state. If they are not all Ready the first time you run kubectl get nodes, wait a few moments and try again. It should look something like this:
+NAME            STATUS   ROLES    AGE   VERSION
+ip-10-0-1-101   Ready    master   85s   v1.12.2
+ip-10-0-1-102   Ready    <none>   63s   v1.12.2
+ip-10-0-1-103   Ready    <none>   60s   v1.12.2

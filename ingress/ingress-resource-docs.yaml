@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-demo
+  namespace: app-space
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: "/hi"
+        backend:
+          service:
+            name: hi-app
+            port:
+              number: 8080
+      - pathType: Prefix
+        path: "/bye"
+        backend:
+          service:
+            name: bye-app
+            port:
+              number: 8080

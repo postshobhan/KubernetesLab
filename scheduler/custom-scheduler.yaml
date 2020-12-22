@@ -7,7 +7,7 @@ metadata:
   labels:
     component: my-scheduler
     tier: control-plane
-  name: my-scheduler
+  name: my-scheduler #name
   namespace: kube-system
 spec:
   containers:
@@ -15,10 +15,10 @@ spec:
     - kube-scheduler
     - --address=127.0.0.1
     - --kubeconfig=/etc/kubernetes/scheduler.conf
-    - --leader-elect=false
-    - --port=10282
-    - --scheduler-name=my-scheduler
-    - --secure-port=0
+    - --leader-elect=false #leader elect false for multiple scheduler
+    - --port=10282 #
+    - --scheduler-name=my-scheduler #add this line for custom scheduler
+    - --secure-port=0 #
     image: k8s.gcr.io/kube-scheduler-amd64:v1.16.0
     imagePullPolicy: IfNotPresent
     livenessProbe:

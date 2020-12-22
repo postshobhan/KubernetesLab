@@ -1,0 +1,17 @@
+#
+#accessModes can be of the below types:
+# ReadOnlyMany, ReadWriteOnce, ReadWriteMany
+#
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-vol1
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  awsElasticBlockStore:
+    volumeId: <vol-id>
+    fsType: ext4

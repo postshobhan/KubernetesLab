@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: hi-app
+    env: internal
+  name: hi-app
+  namespace: joebewda-netpol
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hi-app
+      env: internal
+  template:
+    metadata:
+      labels:
+        app: hi-app
+        env: internal
+    spec:
+      initContainers:
+      - image: busybox
+        name: busybox
+        command: ['sh', '-c', 'echo hi > /var/index.html']
+        volumeMounts:
+        - name: cache-volume
+          mountPath: /var
+      containers:
+      - image: nginx
+        name: nginx
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: cache-volume
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: cache-volume
+        emptyDir: {}

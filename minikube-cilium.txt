@@ -1,0 +1,14 @@
+Delete your current minikube cluster:
+minikube delete
+2. Start minikube cluster with the following options:
+minikube start --network-plugin=cni --enable-default-cni
+# check that all kuberenetes services are ok:
+kubectl get pods -n kube-system
+3. Install Cilium (https://cilium.readthedocs.io/en/stable/gettingstarted/minikube/#install-cilium)
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/1.5.6/examples/kubernetes/1.15/cilium-minikube.yaml
+# check that cilium pod is ok:
+kubectl get pods -n kube-system -l k8s-app=cilium
+
+
+minikube start --network-plugin=cni --enable-default-cni
+minikube addons enable ingress

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: ns-new
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa1
+  namespace: ns-new
+secrets:
+- name: sa1-token-fh8sx
