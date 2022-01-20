@@ -1,0 +1,480 @@
+#Run container in another container's pid namespace
+
+podman run -d --name app1 nginx:alpine sleep infinity
+podman run --name app2 --pid=container:app1 -d nginx:alpine sleep infinity
+
+
+Find container pid
+
+crictl ps
+podman ps
+
+crictl inspect continer_id | grep -i -n5 pid
+Env varibles are loaded on container and can be found on the inspect cmd output
+
+
+inspect the file system of 
+
+Deploy ingress controller
+
+https://kubernetes.github.io/ingress-nginx/deploy/
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.1.0/deploy/static/provider/cloud/deploy.yaml
+
+#create ingress resource
+
+Remember to include the following under spec:
+ingressClassName: nginx 
+
+# generate cert & key
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
+
+kubectl create secret tls testsecret-tls --cert=cert.pem --key=key.pem
+
+curl https://secureingress.com:30083 -kv --resolve secureingress.com:30083:172.31.45.62
+
+#CIS Benchmark
+
+Run Kube bench in container
+https://github.com/aquasecurity/kube-bench/blob/main/docs/running.md
+
+kube-bench run --targets=master
+
+kube-bench run --targets=master --check=1.3.2
+
+#Verify Kubernetes Binary 
+
+which kubelet
+whereis kubelet
+
+#generate sha512 checksum signature
+sha512sum /usr/bin/kubelet
+
+shasum -a512 kubernetes.tar.gz
+sha512sum kubernetes.tar.gz
+
+#To find if two lines are same or not within a file
+cat help.txt | uniq
+
+
+#api resources
+kubectl api-resources --namespaced=false
+kubectl api-resources --namespaced=true
+kubectl api-resources
+
+
+#RBAC
+
+kubectl -n blue create role cks-get-list-secret --verb=get,list --resource=secrets
+kubectl -n blue create rolebinding cks-blue-jane --role=cks-get-list-secret --user=jane
+
+#check RBAC permission
+kubectl -n blue auth can-i list secrets --as jane
+
+#rolebinding can be used for both role and clusterrole
+
+kubectl create rolebinding NAME --clusterrole=NAME|--role=NAME [--user=username] [--group=groupname]
+[--serviceaccount=namespace:serviceaccountname] [--dry-run=server|client|none] [options]
+
+#clusterrolebinding can only be used with clusterrole
+kubectl create clusterrolebinding NAME --clusterrole=NAME [--user=username] [--group=groupname]
+[--serviceaccount=namespace:serviceaccountname] [--dry-run=server|client|none] [options]
+
+openssl genrsa -out jane.key 2048
+openssl req -new -key jane.key -out jane.csr # only set Common Name = jane
+
+
+# create CertificateSigningRequest with base64 jane.csr
+
+
+https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
+
+openssl genrsa -out myuser.key 2048
+openssl req -new -key myuser.key -out myuser.csr
+cat myuser.csr | base64 | tr -d "\n"
+
+#create the CSR using the below cmd or create yaml file, then apply it. make sure to change the request part, with the output 
+of above cmd (csr with base64 encoded)
+
+cat <<EOF | kubectl apply -f -
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: myuser
+spec:
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ1ZqQ0NBVDRDQVFBd0VURVBNQTBHQTFVRUF3d0dZVzVuWld4aE1JSUJJakFOQmdrcWhraUc5dzBCQVFFRgpBQU9DQVE4QU1JSUJDZ0tDQVFFQTByczhJTHRHdTYxakx2dHhWTTJSVlRWMDNHWlJTWWw0dWluVWo4RElaWjBOCnR2MUZtRVFSd3VoaUZsOFEzcWl0Qm0wMUFSMkNJVXBGd2ZzSjZ4MXF3ckJzVkhZbGlBNVhwRVpZM3ExcGswSDQKM3Z3aGJlK1o2MVNrVHF5SVBYUUwrTWM5T1Nsbm0xb0R2N0NtSkZNMUlMRVI3QTVGZnZKOEdFRjJ6dHBoaUlFMwpub1dtdHNZb3JuT2wzc2lHQ2ZGZzR4Zmd4eW8ybmlneFNVekl1bXNnVm9PM2ttT0x1RVF6cXpkakJ3TFJXbWlECklmMXBMWnoyalVnald4UkhCM1gyWnVVV1d1T09PZnpXM01LaE8ybHEvZi9DdS8wYk83c0x0MCt3U2ZMSU91TFcKcW90blZtRmxMMytqTy82WDNDKzBERHk5aUtwbXJjVDBnWGZLemE1dHJRSURBUUFCb0FBd0RRWUpLb1pJaHZjTgpBUUVMQlFBRGdnRUJBR05WdmVIOGR4ZzNvK21VeVRkbmFjVmQ1N24zSkExdnZEU1JWREkyQTZ1eXN3ZFp1L1BVCkkwZXpZWFV0RVNnSk1IRmQycVVNMjNuNVJsSXJ3R0xuUXFISUh5VStWWHhsdnZsRnpNOVpEWllSTmU3QlJvYXgKQVlEdUI5STZXT3FYbkFvczFqRmxNUG5NbFpqdU5kSGxpT1BjTU1oNndLaTZzZFhpVStHYTJ2RUVLY01jSVUyRgpvU2djUWdMYTk0aEpacGk3ZnNMdm1OQUxoT045UHdNMGM1dVJVejV4T0dGMUtCbWRSeEgvbUNOS2JKYjFRQm1HCkkwYitEUEdaTktXTU0xMzhIQXdoV0tkNjVoVHdYOWl4V3ZHMkh4TG1WQzg0L1BHT0tWQW9FNkpsYWFHdTlQVmkKdjlOSjVaZlZrcXdCd0hKbzZXdk9xVlA3SVFjZmg3d0drWm89Ci0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo=
+  signerName: kubernetes.io/kube-apiserver-client
+  expirationSeconds: 86400  # one day
+  usages:
+  - client auth
+EOF
+
+
+kubectl get csr
+kubectl certificate approve myuser
+kubectl get csr/myuser -o yaml
+
+kubectl get csr myuser -o jsonpath='{.status.certificate}'| base64 -d > myuser.crt
+
+
+kubectl config set-credentials myuser --client-key=myuser.key --client-certificate=myuser.crt --embed-certs=true
+kubectl config set-context myuser --cluster=kubernetes --user=myuser
+
+kubectl config use-context myuser
+
+
+
+cat jane.csr | base64 -w 0
+
+
+# add new KUBECONFIG
+k config set-credentials jane --client-key=jane.key --client-certificate=jane.crt
+k config set-context jane --cluster=kubernetes --user=jane
+k config view
+k config get-contexts
+k config use-context jane
+
+#Service acc auto mount
+#To check if service acc token is mounted or not
+
+kubectl -n accessor exec -it app2 -- mount | grep serviceaccount
+kubectl -n accessor exec -it app2 -- cat /var/run/secrets/kubernetes.io/serviceaccount/token
+
+#Troubleshoot api server issue.
+
+cat /var/log/syslog | grep kube-apiserver
+tail -f /var/log/pods/APISERVERPOD/4.log
+
+# inspect apiserver cert
+cd /etc/kubernetes/pki
+openssl x509 -in apiserver.crt -text
+
+# access secret int etcd
+cat /etc/kubernetes/manifests/kube-apiserver.yaml | grep etcd
+
+ETCDCTL_API=3 etcdctl --cert /etc/kubernetes/pki/apiserver-etcd-client.crt --key /etc/kubernetes/pki/apiserver-etcd-client.key --cacert /etc/kubernetes/pki/etcd/ca.crt endpoint health
+
+# --endpoints "https://127.0.0.1:2379" not necessary because we’re on same node
+
+ETCDCTL_API=3 etcdctl --cert /etc/kubernetes/pki/apiserver-etcd-client.crt --key /etc/kubernetes/pki/apiserver-etcd-client.key --cacert /etc/kubernetes/pki/etcd/ca.crt get /registry/secrets/default/secret1
+
+#create base64 encoded string for password string
+echo -n password | base64
+
+#Docker
+
+docker built -t base-image .
+docker built -t base-image -f /path/to/Dockerfile .
+
+docker run -d --name containername base-image
+
+#kube sec
+https://github.com/controlplaneio/kubesec
+
+$ docker run -i kubesec/kubesec:v2 scan /dev/stdin < kubesec-test.yaml
+
+#Image vul
+docker pull aquasec/trivy
+
+docker run aquasec/trivy image nginx
+
+#if trivy is installed already
+trivy image nginx
+
+
+kubectl create secret docker-registry my-private-registry \
+  --docker-username=sxxxxx \
+  --docker-password=xyzzzzz \
+  --docker-email=abc.xxx@xmail.com \
+  --docker-server=docker.io
+
+kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "my-private-registry"}]}'
+
+apiVersion: v1
+kind: Pod
+metadata:
+name: private-reg
+spec:
+containers:
+- name: private-reg-container
+    image: private-reg/custom-nginx
+imagePullSecrets:
+- name: my-private-registry
+
+
+#Image digest:
+You can use image digest instead of image tag as image tag can not ensure that its pointing to right application. Tags can be changed.
+
+image: k8s.gcr.io/kube-apiserver:v1.22.2
+imageID: k8s.gcr.io/kube-apiserver@sha256:eb4fae890583e8d4449c1e18b097aec5574c25c8f0323369a2df871ffa146f41
+
+
+#strace
+# -f to follow forks
+strace -p PID -f -cw
+strace ls /
+
+pidof etcd
+
+strace -cw ls /root
+strace -c ls /root
+
+#inspect etcd secret
+
+cd /proc/PID/
+cd fd
+ll
+
+#look for /var/lib/etcd/member/snap/db on the output for above cmd
+
+kubectl create secret generic creditcard --from-literal cc=12399221
+cat 10 | strings | grep -A10 -B10 12399221
+cat 10 | strings | grep -n10 12399221
+
+
+#list open ports
+netstat -tulpan
+lsof -i :portNumber
+
+#see service to port mapping
+cat /etc/services| grep ssh
+
+
+#user login disabled 
+usermod -s /usr/sbin/nologin himanshi
+
+useradd -d /opt/sam -s /bin/bash -G admin -u 2328 sam
+
+#password less ssh login to a worker node from master
+
+1. from master ssh node01
+2. adduser jim
+3. exit to master
+4. ssh-copy-id -i ~/.ssh/id_rsa.pub jim@node01
+5. test ssh using: ssh jim@node01
+
+#To add sudo privilege for a user
+vi /etc/sudoers
+#add the below line to add user jim to sudoers:
+jim ALL=(ALL:ALL) ALL
+
+#To run sudo without password:
+jim ALL=(ALL) NOPASSWD:ALL
+
+#Add existing user rob to a group admin
+usermod rob -G admin
+
+#Disable root login and password authentication
+
+On node01 host open /etc/ssh/sshd_config config file using any editor like vi and make appropriate changes
+
+Change: PermitRootLogin yes
+
+To: PermitRootLogin no
+
+Change: #PasswordAuthentication yes
+
+To: PasswordAuthentication no
+
+    Restart sshd service
+
+service sshd restart
+
+#Kubectl proxy
+kubectl proxy &
+kubectl proxy --port=8002 &
+
+kubectl port-forward -h
+
+First get all resource names for nginx using the command:
+
+kubectl get all
+
+Run any of below commands with valid names
+
+kubectl port-forward pods/{POD_NAME} 8005:80 &
+
+OR
+
+kubectl port-forward deployment/{DEPLOYMENT_NAME} 8005:80 &
+
+OR
+
+kubectl port-forward service/{SERVICE_NAME} 8005:80 &
+
+OR
+
+kubectl port-forward replicaset/{REPLICASET_NAME} 8005:80 &
+
+then try curl localhost:8005 to check nginx response
+
+
+####
+show all packages installed
+apt list --installed
+#remove packages
+apt remove nginx -y
+#update
+apt-get update
+apt install wget -y
+
+#activer services
+systemctl list-units --type service
+
+list the kernel modules currently loaded on a system
+lsmod
+
+Find out the name of the unit file:
+systemctl list-units --all | grep nginx
+
+Stop Nginx service:
+systemctl stop nginx
+
+Find out the location of the service unit:
+systemctl status nginx
+
+Remove the unit file:
+rm /lib/systemd/system/nginx.service
+
+
+#blacklist
+Open vim /etc/modprobe.d/blacklist.conf file and
+
+Change:
+
+#blacklist evbug
+To
+blacklist evbug
+
+#ufw firewall
+ufw status
+ufw status numbered
+
+What is the command to allow a tcp port range between 1000 and 2000 in ufw?
+ufw allow 1000:2000/tcp
+
+ufw reset
+ufw allow 22
+
+
+
+We have some services on node01 host, which are running on tcp port 9090 and 9091. 
+Add ufw rules to allow incoming connection on these ports 
+from IP range 135.22.65.0/24 to any interface on node01.
+
+ufw allow from 135.22.65.0/24 to any port 9090 proto tcp
+ufw allow from 135.22.65.0/24 to any port 9091 proto tcp
+
+To enable the firewall: ufw enable
+
+#disable port 80
+
+ufw deny 80
+
+##Temporarily disable the firewall but the old rules are still maintained
+ufw disable 
+
+ufw default allow outgoing
+ufw default deny incoming
+
+ufw delete deny 8080
+ufw delete 5
+
+#seccomp
+if seccomp profile json file has the below entry,
+If defaultAction": "SCMP_ACT_ERRNO
+Its  default deny. It will have a whitelist of syscalls. White list type profile.
+
+Seccomp profile location by default is set to /var/lib/kubelet/seccomp
+
+grep -i seccomp /boot/config-$(uname -r)
+
+need to copy seccomp profiles to all nodes in kubernetes cluster
+
+
+#APPARMOR
+systemctl status apparmor
+cat /sys/module/apparmor/parameters/enabled   
+--above cmd should return y
+
+cat /sys/kernel/security/apparmor/profiles
+
+aa-status
+
+cat /etc/apparmor.d/root.add_data.sh
+
+apparmor_parser add_data.sh
+
+#Disable apparmor
+apparmor_parser -R add_data.sh
+ln -s /etc/apparmor.d/root.data.sh /etc/apparmor.d/disable/
+
+Apparmor should be enabled and apparmor profile should be loaded in all nodes
+
+#check linux capabilities of a process
+
+getcap /usr/bin/ping
+getpcaps PID
+
+securityContext:
+      capabilities:
+        add: ["NET_ADMIN", "SYS_TIME"]
+
+securityContext:
+    capabilities:
+        drop: ["CHOWN"]
+
+        
+#check kubernetes kube-admin admission controller plugin options:        
+        
+kubectl -n kube-system exec -it kube-apiserver-controlplane -- kube-apiserver -h | grep 'enable-admission-plugins'
+
+Since the kube-apiserver is running as pod you can check the process to see enabled and disabled plugins.
+ps -ef | grep kube-apiserver | grep admission-plugins
+
+OPA
+
+#Run opa in server mode
+./opa run -s &
+
+#Load sample.rego as name samplepolicy
+
+curl -X PUT --data-binary @sample.rego http://localhost:8181/v1/policies/samplepolicy
+
+#check falco events, if falco installed as a service
+journalctl -u falco
+
+
+#search recursively for a text using grep under dir /path/dir
+grep -ir 'text to search' /path/dir
+
+hot-reload the falco configuration by running kill -1 $(cat /var/run/falco.pid)
+
+#check pid of falco
+cat /var/run/falco.pid
+pidof falco
+ps aux | grep falco
+
+#save time tips
+alias k=kubectl
+export do='--dry-run=client -oyaml'
+export now='--force --grace-period=0'
+
+k get po  --no-headers| awk '{print $1}'
+k get po -oname
+
+
+#Use of dmesg cmd
+k -n team-purple exec gvisor-test --dmesg > /opt/course/10/gvisor-test-dmesg
+
+#view kubeconfig certifcate in raw format
+k config view --raw
+
+#hack secret using service account token if the sa has right permission through rbac
+
+export token=asdhajdhaksdhqhuqheuwqeh...
+curl -k https://192.168.100.21:6443/api/v1/namespaces/restricted/secrets -H "Authorization: Bearer $token"
+
+curl -k https://192.168.100.21:6443/api/v1/namespaces/restricted/pods -H "Authorization: Bearer $token"
+
+#OPA policy can be found in configmaps as well. Make sure to scan the config maps in namespaces.

@@ -1122,3 +1122,18 @@ wget -qO- POD_IP_ADDRESS:80
 kubectl get nodes -o=custom-columns='TAINT:.spec.taints,NODE:.metadata.name'
 
 sudo journalctl -u kubelet
+
+
+member list
+sudo chown -R etcd:etcd /var/lib/etcd
+
+sudo systemctl start etcd
+
+kubectl auth can-i --list --as=system:serviceaccount:ns-new:sa1 -n ns-new
+
+kubectl top pod --sort-by=cpu -l name=cpu-utilizer --no-headers  | head -n1 | awk '{print $2}'
+
+sudo systemctl list-unit-files
+
+k cluster-info dump | grep data-dir
+k cluster-info dump | grep 2380
