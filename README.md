@@ -1,2 +1,2 @@
 # KubernetesLab
-CKA | Kubernetes Notes
+CKA | Kubernetes Notes | k8s exam prep 
