@@ -1,0 +1,49 @@
+gcloud projects list
+
+gcloud config set project causal-bindery-298618
+
+gcloud compute instances list
+
+
+# CREATE cks-master VM using gcloud command
+# not necessary if created using the browser interface
+gcloud compute instances create cks-master --zone=us-central1-c \
+--machine-type=e2-medium \
+--image=ubuntu-1804-bionic-v20201014 \
+--image-project=ubuntu-os-cloud \
+--boot-disk-size=50GB
+
+# CREATE cks-worker VM using gcloud command
+# not necessary if created using the browser interface
+gcloud compute instances create cks-worker --zone=us-central1-c \
+--machine-type=e2-medium \
+--image=ubuntu-1804-bionic-v20201014 \
+--image-project=ubuntu-os-cloud \
+--boot-disk-size=50GB
+
+# you can use a region near you
+https://cloud.google.com/compute/docs/regions-zones
+
+
+# INSTALL cks-master
+gcloud compute ssh cks-master
+sudo -i
+bash <(curl -s https://raw.githubusercontent.com/killer-sh/cks-course-environment/master/cluster-setup/latest/install_master.sh)
+
+
+# INSTALL cks-worker
+gcloud compute ssh cks-worker
+sudo -i
+bash <(curl -s https://raw.githubusercontent.com/killer-sh/cks-course-environment/master/cluster-setup/latest/install_worker.sh)
+
+
+10.128.0.2
+
+kubeadm join 10.128.0.2:6443 --token gvqy8o.a0o6w289zyvea4b8     --discovery-token-ca-cert-hash sha256:d078003a31c3a7bdd07be62c6b73250dd0b2de
+11ba0bf19f0a608bf9448b5831
+
+kubeadm join 10.128.0.2:6443 --token gvqy8o.a0o6w289zyvea4b8     --discovery-token-ca-cert-hash sha256:d078003a31c3a7bdd07be62c6b73250dd0b2de11ba0bf19f0a608bf9448b5831
+
+#open ports for nodeports etc.
+gcloud compute firewall-rules create nodeports --allow tcp:30000-40000
+
